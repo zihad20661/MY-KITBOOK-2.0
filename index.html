@@ -305,9 +305,12 @@ async function addItem(){
   const qty = Number(document.getElementById("itemQty").value);
   const interval = Number(document.getElementById("interval").value);
   const start = document.getElementById("startDate").value;
+  const firstDue = document.getElementById("firstDueDate").value;
   const notes = document.getElementById("itemNotes").value.trim();
 
-  if(!name || !start || qty<1 || interval<1){
+  if(!name || !start || !firstDue || qty<1 || interval<1 || new Date(firstDue) < new Date(start)){
+  return msg("সঠিক নাম, পরিমাণ, মেয়াদ এবং তারিখ দাও। First Due Date যেন Start Date-এর আগে না হয়।");
+}
     return msg("সঠিক নাম, পরিমাণ, মেয়াদ ও তারিখ দাও।");
   }
 
@@ -319,7 +322,7 @@ async function addItem(){
     quantity:qty,
     interval_months:interval,
     start_date:start,
-    next_due_date:start,
+    next_due_date:firstDue,
     notes:notes
   });
 
@@ -327,7 +330,7 @@ async function addItem(){
 
   document.getElementById("itemName").value="";
   document.getElementById("itemNotes").value="";
-  document.getElementById("startDate").value="";
+  document.getElementById("firstDueDate").value="";
   msg("নতুন Kit সফলভাবে যোগ হয়েছে!");
   await loadItems();
 }
