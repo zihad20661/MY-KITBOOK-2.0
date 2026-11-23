@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MY-KITBOOK 2.0</title>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f3f7fc;color:#172b4d;font-family:Arial,sans-serif}
@@ -30,12 +32,15 @@ button:disabled{opacity:.5}
 .red{color:#d43d48}
 .tabs{display:flex;gap:8px;flex-wrap:wrap}
 .tabs button{width:auto;flex:1}
-#message{padding:10px;color:#1769d2;font-size:14px}
-@media(min-width:650px){.stats{grid-template-columns:repeat(4,1fr)}}
+#message{padding:10px;color:#1769d2;font-size:14px;overflow-wrap:anywhere}
+label{display:block;margin-top:10px;font-size:14px}
+@media(min-width:650px){
+.stats{grid-template-columns:repeat(4,1fr)}
+}
 </style>
 </head>
-<body>
 
+<body>
 <header>
 <h2>MY-KITBOOK 2.0</h2>
 <p>POLICE KIT MANAGEMENT SYSTEM</p>
@@ -44,9 +49,9 @@ button:disabled{opacity:.5}
 <main>
 <div id="message"></div>
 
-<!-- LOGIN -->
 <section id="authSection" class="card">
 <h2>Welcome Back</h2>
+
 <div class="tabs">
 <button onclick="showAuth('login')">Login</button>
 <button class="secondary" onclick="showAuth('register')">Registration</button>
@@ -63,15 +68,15 @@ button:disabled{opacity:.5}
 <h3>Create Account</h3>
 <input id="regBP" placeholder="Police BP ID">
 <input id="regNick" placeholder="Your Nickname">
-<input id="regPass" type="password" placeholder="Create Password (minimum 8 characters)">
+<input id="regPass" type="password" placeholder="Password (minimum 8 characters)">
 <input id="regConfirm" type="password" placeholder="Confirm Password">
 <button onclick="register()">Create Account</button>
 <p class="small">একটি BP ID দিয়ে একবারই অ্যাকাউন্ট খোলা যাবে।</p>
 </div>
 </section>
 
-<!-- DASHBOARD -->
 <section id="dashboard" class="hidden">
+
 <div class="card">
 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
 <div>
@@ -85,16 +90,19 @@ button:disabled{opacity:.5}
 <div class="stats">
 <div class="stat">Total Items<strong id="total">0</strong></div>
 <div class="stat">Due Quantity<strong id="due">0</strong></div>
-<div class="stat">Received<strong id="received">0</strong></div>
+<div class="stat">Received Items<strong id="received">0</strong></div>
 <div class="stat">Overdue Items<strong id="overdue">0</strong></div>
 </div>
 
 <div class="card">
 <h3>+ Add New Kit Item</h3>
+
 <input id="itemName" placeholder="Kit Name (e.g. Shirt)">
 <input id="itemQty" type="number" min="1" value="1" placeholder="Quantity per cycle">
-<input id="interval" type="number" min="1" value="12" placeholder="Interval in months">
-<label>First Due Date</label>
+
+<label>Interval (Months)</label>
+<input id="interval" type="number" min="1" value="12">
+
 <label>Start Date</label>
 <input id="startDate" type="date">
 
@@ -102,8 +110,13 @@ button:disabled{opacity:.5}
 <input id="firstDueDate" type="date">
 
 <input id="itemNotes" placeholder="Notes (optional)">
+
 <button onclick="addItem()">Add Kit Item</button>
-<p class="small">উদাহরণ: ২ মাস পরপর ১টি পেতে Interval = 2 এবং Quantity = 1 দাও।</p>
+
+<p class="small">
+উদাহরণ: ২ মাস পরপর ১টি পেতে Interval = 2 এবং Quantity = 1 দাও।
+এই সংস্করণে ১ মাস = ৩০ দিন হিসেবে হিসাব করা হবে।
+</p>
 </div>
 
 <div class="card">
@@ -115,6 +128,7 @@ button:disabled{opacity:.5}
 <h3>Recent Receive History</h3>
 <div id="history">No history yet.</div>
 </div>
+
 </section>
 </main>
 
@@ -122,6 +136,7 @@ button:disabled{opacity:.5}
 // =====================================
 // SUPABASE CONFIGURATION
 // =====================================
+
 const SUPABASE_URL = "https://yntejbgmrjjvwtogfzku.supabase.co";
 const SUPABASE_KEY = "sb_publishable_pRow3FkG5pBtYF6_R8McOA_-CTpDnte";
 
@@ -137,13 +152,14 @@ let items = [];
 // =====================================
 // HELPERS
 // =====================================
+
 function msg(text){
   document.getElementById("message").textContent = text;
 }
 
 function showAuth(type){
-  document.getElementById("loginForm").classList.toggle("hidden",type!=="login");
-  document.getElementById("registerForm").classList.toggle("hidden",type!=="register");
+  document.getElementById("loginForm").classList.toggle("hidden",type !== "login");
+  document.getElementById("registerForm").classList.toggle("hidden",type !== "register");
   msg("");
 }
 
@@ -154,144 +170,188 @@ function loginEmail(bp){
 
 function safe(value){
   return String(value ?? "").replace(/[&<>"']/g,c=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",
-    '"':"&quot;","'":"&#39;"
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
   })[c]);
 }
 
 function dateString(d){
-  return d.toISOString().slice(0,10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${year}-${month}-${day}`;
 }
 
-function addMonths(dateStringValue, months){
-  const d = new Date(dateStringValue + "T12:00:00");
-  const day = d.getDate();
-  d.setDate(1);
-  d.setMonth(d.getMonth() + months);
-  const last = new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
-  d.setDate(Math.min(day,last));
+function addDays(date,days){
+  const d = new Date(date+"T12:00:00");
+  d.setDate(d.getDate()+days);
   return dateString(d);
 }
 
 function dueCycles(nextDate,interval){
+  if(!nextDate || !interval) return 0;
+
   const today = dateString(new Date());
+
   if(nextDate > today) return 0;
-  let date = nextDate;
-  let count = 0;
-  while(date <= today && count < 1200){
-    count++;
-    date = addMonths(date,interval);
-  }
-  return count;
+
+  const first = new Date(nextDate+"T12:00:00");
+  const now = new Date(today+"T12:00:00");
+
+  const diff = Math.floor((now-first)/86400000);
+
+  return Math.floor(diff/interval)+1;
 }
 
 // =====================================
 // REGISTRATION
 // =====================================
+
 async function register(){
-  const bp = document.getElementById("regBP").value.trim();
-  const nick = document.getElementById("regNick").value.trim();
-  const pass = document.getElementById("regPass").value;
-  const confirm = document.getElementById("regConfirm").value;
+  try{
+    const bp = document.getElementById("regBP").value.trim();
+    const nick = document.getElementById("regNick").value.trim();
+    const pass = document.getElementById("regPass").value;
+    const confirm = document.getElementById("regConfirm").value;
 
-  if(!bp || !nick || !pass){
-    return msg("সব তথ্য পূরণ করো।");
-  }
-  if(!/^[a-zA-Z0-9-]+$/.test(bp)){
-    return msg("BP ID-তে শুধু ইংরেজি অক্ষর, সংখ্যা ও - ব্যবহার করো।");
-  }
-  if(pass.length < 8){
-    return msg("Password কমপক্ষে ৮ অক্ষরের হতে হবে।");
-  }
-  if(pass !== confirm){
-    return msg("দুটি Password মিলছে না।");
-  }
+    if(!bp || !nick || !pass){
+      return msg("সব তথ্য পূরণ করো।");
+    }
 
-  msg("Account তৈরি হচ্ছে...");
+    if(!/^[a-zA-Z0-9-]+$/.test(bp)){
+      return msg("BP ID-তে শুধু ইংরেজি অক্ষর, সংখ্যা ও - ব্যবহার করো।");
+    }
 
-  const {data,error} = await sb.auth.signUp({
-    email:loginEmail(bp),
-    password:pass
-  });
+    if(pass.length<8){
+      return msg("Password কমপক্ষে ৮ অক্ষরের হতে হবে।");
+    }
 
-  if(error) return msg(error.message);
-  if(!data.session){
-    return msg("Registration হয়েছে। Email confirmation setting যাচাই করো।");
-  }
+    if(pass!==confirm){
+      return msg("দুটি Password মিলছে না।");
+    }
 
-  const {error:profileError} = await sb
-    .from("profiles")
-    .insert({
-      id:data.user.id,
-      bp_id:bp,
-      nickname:nick
+    msg("Account তৈরি হচ্ছে...");
+
+    const {data,error} = await sb.auth.signUp({
+      email:loginEmail(bp),
+      password:pass
     });
 
-  if(profileError){
-    return msg("Profile তৈরি হয়নি: "+profileError.message);
-  }
+    if(error) return msg(error.message);
 
-  msg("Registration সফল হয়েছে!");
-  await openDashboard();
+    if(!data.session){
+      return msg("Registration হয়েছে। Email confirmation প্রয়োজন হতে পারে।");
+    }
+
+    const {error:profileError} = await sb
+      .from("profiles")
+      .insert({
+        id:data.user.id,
+        bp_id:bp,
+        nickname:nick
+      });
+
+    if(profileError){
+      return msg("Profile তৈরি হয়নি: "+profileError.message);
+    }
+
+    msg("Registration সফল হয়েছে!");
+    await openDashboard();
+
+  }catch(e){
+    msg("Registration Error: "+e.message);
+  }
 }
 
 // =====================================
 // LOGIN
 // =====================================
+
 async function login(){
-  const bp = document.getElementById("loginBP").value.trim();
-  const pass = document.getElementById("loginPass").value;
+  try{
+    const bp = document.getElementById("loginBP").value.trim();
+    const pass = document.getElementById("loginPass").value;
 
-  if(!bp || !pass) return msg("BP ID ও Password দাও।");
+    if(!bp || !pass){
+      return msg("BP ID ও Password দাও।");
+    }
 
-  msg("Login হচ্ছে...");
+    msg("Login হচ্ছে...");
 
-  const {error} = await sb.auth.signInWithPassword({
-    email:loginEmail(bp),
-    password:pass
-  });
+    const {data,error} = await sb.auth.signInWithPassword({
+      email:loginEmail(bp),
+      password:pass
+    });
 
-  if(error) return msg("Login failed: "+error.message);
+    if(error){
+      return msg("Login failed: "+error.message);
+    }
 
-  await openDashboard();
+    await openDashboard();
+
+  }catch(e){
+    msg("Login Error: "+e.message);
+  }
 }
 
 // =====================================
 // DASHBOARD
 // =====================================
+
 async function openDashboard(){
-  const {data} = await sb.auth.getUser();
-  if(!data.user) return;
+  try{
+    const {data,error:authError} = await sb.auth.getUser();
 
-  currentUser = data.user;
+    if(authError) return msg(authError.message);
+    if(!data.user) return msg("User পাওয়া যায়নি।");
 
-  const {data:p,error} = await sb
-    .from("profiles")
-    .select("*")
-    .eq("id",currentUser.id)
-    .single();
+    currentUser = data.user;
 
-  if(error) return msg("Profile পাওয়া যায়নি: "+error.message);
+    const {data:p,error} = await sb
+      .from("profiles")
+      .select("*")
+      .eq("id",currentUser.id)
+      .single();
 
-  profile = p;
+    if(error){
+      return msg("Profile পাওয়া যায়নি: "+error.message);
+    }
 
-  document.getElementById("authSection").classList.add("hidden");
-  document.getElementById("dashboard").classList.remove("hidden");
-  document.getElementById("welcome").textContent =
-    "Welcome, "+profile.nickname+" | BP ID: "+profile.bp_id;
+    profile = p;
 
-  msg("");
-  await loadItems();
-  await loadHistory();
+    document.getElementById("authSection").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+
+    document.getElementById("welcome").textContent =
+      "Welcome, "+profile.nickname+" | BP ID: "+profile.bp_id;
+
+    msg("");
+
+    await loadItems();
+    await loadHistory();
+
+  }catch(e){
+    msg("Dashboard Error: "+e.message);
+  }
 }
+
+// =====================================
+// LOAD ITEMS
+// =====================================
 
 async function loadItems(){
   const {data,error} = await sb
     .from("kit_items")
     .select("*")
+    .eq("user_id",currentUser.id)
     .order("next_due_date");
 
-  if(error) return msg(error.message);
+  if(error){
+    return msg("Kit Load Error: "+error.message);
+  }
 
   items = data || [];
   renderItems();
@@ -300,169 +360,248 @@ async function loadItems(){
 // =====================================
 // ADD KIT
 // =====================================
+
 async function addItem(){
-  const name = document.getElementById("itemName").value.trim();
-  const qty = Number(document.getElementById("itemQty").value);
-  const interval = Number(document.getElementById("interval").value);
-  const start = document.getElementById("startDate").value;
-  const firstDue = document.getElementById("firstDueDate").value;
-  const notes = document.getElementById("itemNotes").value.trim();
+  try{
+    const name = document.getElementById("itemName").value.trim();
+    const qty = Number(document.getElementById("itemQty").value);
+    const months = Number(document.getElementById("interval").value);
+    const start = document.getElementById("startDate").value;
+    const firstDue = document.getElementById("firstDueDate").value;
+    const notes = document.getElementById("itemNotes").value.trim();
 
-  if(!name || !start || !firstDue || qty<1 || interval<1 || new Date(firstDue) < new Date(start)){
-  return msg("সঠিক নাম, পরিমাণ, মেয়াদ এবং তারিখ দাও। First Due Date যেন Start Date-এর আগে না হয়।");
-}
-    return msg("সঠিক নাম, পরিমাণ, মেয়াদ ও তারিখ দাও।");
+    if(!name || !start || !firstDue || !Number.isInteger(qty) ||
+       !Number.isInteger(months) || qty<1 || months<1){
+      return msg("সঠিক নাম, পরিমাণ, মেয়াদ ও তারিখ দাও।");
+    }
+
+    if(firstDue < start){
+      return msg("First Due Date যেন Start Date-এর আগে না হয়।");
+    }
+
+    if(!currentUser){
+      return msg("আগে Login করো।");
+    }
+
+    const intervalDays = months*30;
+
+    msg("Kit যোগ হচ্ছে...");
+
+    const {error} = await sb.from("kit_items").insert({
+      user_id:currentUser.id,
+      item_name:name,
+      quantity:qty,
+      interval_days:intervalDays,
+      next_due_date:firstDue,
+      notes:notes
+    });
+
+    if(error){
+      return msg("Kit Add Error: "+error.message);
+    }
+
+    document.getElementById("itemName").value="";
+    document.getElementById("itemNotes").value="";
+    document.getElementById("startDate").value="";
+    document.getElementById("firstDueDate").value="";
+
+    msg("নতুন Kit সফলভাবে যোগ হয়েছে!");
+
+    await loadItems();
+
+  }catch(e){
+    msg("Add Error: "+e.message);
   }
-
-  msg("Kit যোগ হচ্ছে...");
-
-  const {error} = await sb.from("kit_items").insert({
-    user_id:currentUser.id,
-    item_name:name,
-    quantity:qty,
-    interval_months:interval,
-    start_date:start,
-    next_due_date:firstDue,
-    notes:notes
-  });
-
-  if(error) return msg(error.message);
-
-  document.getElementById("itemName").value="";
-  document.getElementById("itemNotes").value="";
-  document.getElementById("firstDueDate").value="";
-  msg("নতুন Kit সফলভাবে যোগ হয়েছে!");
-  await loadItems();
 }
 
 // =====================================
 // RENDER INVENTORY
 // =====================================
+
 function renderItems(){
-  let totalDue=0, overdueCount=0;
+  let totalDue = 0;
+  let overdueCount = 0;
 
   const list = document.getElementById("itemList");
 
   if(!items.length){
-    list.innerHTML="এখনো কোনো Kit যোগ করা হয়নি।";
+    list.innerHTML = "এখনো কোনো Kit যোগ করা হয়নি।";
   }else{
-    list.innerHTML=items.map(item=>{
-      const cycles=dueCycles(item.next_due_date,item.interval_months);
-      const dueQty=cycles*item.quantity;
-      totalDue+=dueQty;
+
+    list.innerHTML = items.map(item=>{
+
+      const interval = Number(item.interval_days);
+      const cycles = dueCycles(item.next_due_date,interval);
+      const dueQty = cycles*Number(item.quantity);
+
+      totalDue += dueQty;
+
       if(cycles>0) overdueCount++;
 
       return `
       <div class="item">
+
         <h3>${safe(item.item_name)}</h3>
+
         <p>প্রতি বার: ${item.quantity} টি</p>
-        <p>Interval: ${item.interval_months} মাস</p>
+
+        <p>Interval: ${Math.round(interval/30)} মাস</p>
+
         <p>Next Due: ${safe(item.next_due_date)}</p>
+
         <p class="${cycles>0?'red':'green'}">
-          ${cycles>0?'বকেয়া':'পরবর্তী Due'}: ${dueQty>0?dueQty+' টি': 'এখনো সময় হয়নি'}
+          ${cycles>0?'বকেয়া':'পরবর্তী Due'}:
+          ${dueQty>0?dueQty+' টি':'এখনো সময় হয়নি'}
         </p>
+
+        ${item.last_received ?
+        `<p>সর্বশেষ Receive: ${safe(item.last_received)}</p>`:""}
+
+        ${item.notes ?
+        `<p>Notes: ${safe(item.notes)}</p>`:""}
+
         ${cycles>0?`
-        <button onclick="receiveItem('${item.id}',${dueQty})">
+        <button onclick="receiveItem('${item.id}')">
           Receive ${dueQty} টি
         </button>`:""}
+
       </div>`;
     }).join("");
   }
 
-  document.getElementById("total").textContent=items.length;
-  document.getElementById("due").textContent=totalDue;
-  document.getElementById("overdue").textContent=overdueCount;
+  document.getElementById("total").textContent = items.length;
+  document.getElementById("due").textContent = totalDue;
+  document.getElementById("overdue").textContent = overdueCount;
+
+  document.getElementById("received").textContent =
+    items.filter(x=>x.last_received).length;
 }
 
 // =====================================
 // RECEIVE KIT
 // =====================================
-async function receiveItem(id,qty){
-  const item=items.find(x=>x.id===id);
-  if(!item) return;
 
-  if(!confirm(item.item_name+" - "+qty+" টি Receive করবে?")) return;
+async function receiveItem(id){
+  try{
+    const item = items.find(x=>x.id===id);
 
-  const cycles=dueCycles(item.next_due_date,item.interval_months);
-  if(cycles===0) return msg("এখনো Due হয়নি।");
+    if(!item) return;
 
-  const receivedDate=dateString(new Date());
-  const nextDate=addMonths(item.next_due_date,
-    cycles*item.interval_months);
+    const interval = Number(item.interval_days);
+    const cycles = dueCycles(item.next_due_date,interval);
+    const qty = cycles*Number(item.quantity);
 
-  msg("Receive সংরক্ষণ হচ্ছে...");
+    if(cycles===0){
+      return msg("এখনো Due হয়নি।");
+    }
 
-  const {error:receiptError}=await sb.from("kit_receipts").insert({
-    user_id:currentUser.id,
-    item_id:id,
-    received_quantity:qty,
-    received_date:receivedDate
-  });
+    if(!confirm(item.item_name+" - "+qty+" টি Receive করবে?")){
+      return;
+    }
 
-  if(receiptError) return msg(receiptError.message);
+    const receivedDate = dateString(new Date());
+    const nextDate = addDays(
+      item.next_due_date,
+      cycles*interval
+    );
 
-  const {error:updateError}=await sb.from("kit_items")
-    .update({
-      next_due_date:nextDate,
-      updated_at:new Date().toISOString()
-    })
-    .eq("id",id);
+    msg("Receive সংরক্ষণ হচ্ছে...");
 
-  if(updateError){
-    return msg("Receive history সংরক্ষিত হয়েছে, কিন্তু Due Date আপডেট হয়নি: "+updateError.message);
+    const {error} = await sb
+      .from("kit_items")
+      .update({
+        next_due_date:nextDate,
+        last_received:receivedDate
+      })
+      .eq("id",id)
+      .eq("user_id",currentUser.id);
+
+    if(error){
+      return msg("Receive Error: "+error.message);
+    }
+
+    msg("Receive সফল হয়েছে!");
+
+    await loadItems();
+    await loadHistory();
+
+  }catch(e){
+    msg("Receive Error: "+e.message);
+  }
+}
+
+// =====================================
+// RECEIVE HISTORY
+// =====================================
+
+async function loadHistory(){
+
+  const receivedItems = items
+    .filter(x=>x.last_received)
+    .sort((a,b)=>b.last_received.localeCompare(a.last_received));
+
+  const history = document.getElementById("history");
+
+  if(!receivedItems.length){
+    history.innerHTML = "কোনো Receive History নেই।";
+    return;
   }
 
-  msg("Receive সফল হয়েছে!");
-  await loadItems();
-  await loadHistory();
+  history.innerHTML = receivedItems.map(item=>`
+    <div class="item">
+      <b>${safe(item.item_name)}</b>
+      <p>সর্বশেষ Receive Date: ${safe(item.last_received)}</p>
+    </div>
+  `).join("");
 }
 
 // =====================================
-// HISTORY
+// LOGOUT
 // =====================================
-async function loadHistory(){
-  const {data,error}=await sb.from("kit_receipts")
-    .select("*,kit_items(item_name)")
-    .order("received_date",{ascending:false})
-    .limit(50);
 
-  if(error) return;
-
-  const total=(data||[]).reduce(
-    (sum,r)=>sum+r.received_quantity,0
-  );
-  document.getElementById("received").textContent=total;
-
-  document.getElementById("history").innerHTML =
-    !data?.length ? "কোনো Receive History নেই।" :
-    data.map(r=>`
-      <div class="item">
-        <b>${safe(r.kit_items?.item_name || "Kit")}</b>
-        <p>পরিমাণ: ${r.received_quantity} টি</p>
-        <p>তারিখ: ${safe(r.received_date)}</p>
-      </div>
-    `).join("");
-}
-
-// =====================================
-// LOGOUT & AUTO LOGIN
-// =====================================
 async function logout(){
-  await sb.auth.signOut();
-  currentUser=null;
-  profile=null;
+  const {error} = await sb.auth.signOut();
+
+  if(error){
+    return msg(error.message);
+  }
+
+  currentUser = null;
+  profile = null;
+  items = [];
+
   document.getElementById("dashboard").classList.add("hidden");
   document.getElementById("authSection").classList.remove("hidden");
+
+  document.getElementById("loginPass").value="";
+
   showAuth("login");
   msg("Logout সফল হয়েছে।");
 }
 
+// =====================================
+// AUTO LOGIN
+// =====================================
+
 async function init(){
-  const {data}=await sb.auth.getSession();
-  if(data.session) await openDashboard();
+  try{
+    const {data,error} = await sb.auth.getSession();
+
+    if(error){
+      return msg(error.message);
+    }
+
+    if(data.session){
+      await openDashboard();
+    }
+
+  }catch(e){
+    msg("Initialization Error: "+e.message);
+  }
 }
 
 init();
+
 </script>
 </body>
 </html>
