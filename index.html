@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MY-KITBOOK 2.0</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f7fc;color:#172b4d;font-family:Arial,sans-serif}
+header{background:#1769d2;color:white;padding:20px}
+header h2{margin:0}
+header p{margin:6px 0 0;font-size:12px}
+main{max-width:1000px;margin:25px auto;padding:15px}
+.card{background:white;border-radius:14px;padding:20px;margin-bottom:18px;box-shadow:0 3px 15px #173c6410}
+h2,h3{margin-top:0}
+input,button{width:100%;padding:13px;margin:7px 0;border-radius:8px;font-size:15px}
+input{border:1px solid #d6e1ef}
+button{border:0;background:#1769d2;color:white;font-weight:bold;cursor:pointer}
+button.secondary{background:#e8f1ff;color:#1769d2}
+button:disabled{opacity:.5}
+.hidden{display:none}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.stat{background:#edf5ff;padding:16px;border-radius:10px}
+.stat strong{font-size:25px;color:#1769d2;display:block;margin-top:8px}
+.item{border:1px solid #e1eaf5;border-radius:10px;padding:14px;margin:12px 0}
+.item p{margin:7px 0;font-size:14px}
+.small{font-size:12px;color:#718096}
+.green{color:#16834b}
+.red{color:#d43d48}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tabs button{width:auto;flex:1}
+#message{padding:10px;color:#1769d2;font-size:14px}
+@media(min-width:650px){.stats{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+
+<header>
+<h2>MY-KITBOOK 2.0</h2>
+<p>POLICE KIT MANAGEMENT SYSTEM</p>
+</header>
+
+<main>
+<div id="message"></div>
+
+<!-- LOGIN -->
+<section id="authSection" class="card">
+<h2>Welcome Back</h2>
+<div class="tabs">
+<button onclick="showAuth('login')">Login</button>
+<button class="secondary" onclick="showAuth('register')">Registration</button>
+</div>
+
+<div id="loginForm">
+<h3>Member Login</h3>
+<input id="loginBP" placeholder="Police BP ID">
+<input id="loginPass" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+</div>
+
+<div id="registerForm" class="hidden">
+<h3>Create Account</h3>
+<input id="regBP" placeholder="Police BP ID">
+<input id="regNick" placeholder="Your Nickname">
+<input id="regPass" type="password" placeholder="Create Password (minimum 8 characters)">
+<input id="regConfirm" type="password" placeholder="Confirm Password">
+<button onclick="register()">Create Account</button>
+<p class="small">একটি BP ID দিয়ে একবারই অ্যাকাউন্ট খোলা যাবে।</p>
+</div>
+</section>
+
+<!-- DASHBOARD -->
+<section id="dashboard" class="hidden">
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+<div>
+<h2>My Dashboard</h2>
+<p id="welcome"></p>
+</div>
+<button style="width:auto" onclick="logout()">Logout</button>
+</div>
+</div>
+
+<div class="stats">
+<div class="stat">Total Items<strong id="total">0</strong></div>
+<div class="stat">Due Quantity<strong id="due">0</strong></div>
+<div class="stat">Received<strong id="received">0</strong></div>
+<div class="stat">Overdue Items<strong id="overdue">0</strong></div>
+</div>
+
+<div class="card">
+<h3>+ Add New Kit Item</h3>
+<input id="itemName" placeholder="Kit Name (e.g. Shirt)">
+<input id="itemQty" type="number" min="1" value="1" placeholder="Quantity per cycle">
+<input id="interval" type="number" min="1" value="12" placeholder="Interval in months">
+<label>First Due Date</label>
+<input id="startDate" type="date">
+<input id="itemNotes" placeholder="Notes (optional)">
+<button onclick="addItem()">Add Kit Item</button>
+<p class="small">উদাহরণ: ২ মাস পরপর ১টি পেতে Interval = 2 এবং Quantity = 1 দাও।</p>
+</div>
+
+<div class="card">
+<h3>My Kit Inventory</h3>
+<div id="itemList">Loading...</div>
+</div>
+
+<div class="card">
+<h3>Recent Receive History</h3>
+<div id="history">No history yet.</div>
+</div>
+</section>
+</main>
+
+<script>
+// =====================================
+// SUPABASE CONFIGURATION
+// =====================================
+const SUPABASE_URL = "https://yntejbgmrjjvwtogfzku.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_pRow3FkG5pBtYF6_R8McOA_-CTpDnte";
+
+const sb = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+let currentUser = null;
+let profile = null;
+let items = [];
+
+// =====================================
+// HELPERS
+// =====================================
+function msg(text){
+  document.getElementById("message").textContent = text;
+}
+
+function showAuth(type){
+  document.getElementById("loginForm").classList.toggle("hidden",type!=="login");
+  document.getElementById("registerForm").classList.toggle("hidden",type!=="register");
+  msg("");
+}
+
+function loginEmail(bp){
+  const clean = bp.toLowerCase().replace(/[^a-z0-9]/g,"");
+  return "bp-" + clean + "@my-kitbook.app";
+}
+
+function safe(value){
+  return String(value ?? "").replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",
+    '"':"&quot;","'":"&#39;"
+  })[c]);
+}
+
+function dateString(d){
+  return d.toISOString().slice(0,10);
+}
+
+function addMonths(dateStringValue, months){
+  const d = new Date(dateStringValue + "T12:00:00");
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const last = new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  d.setDate(Math.min(day,last));
+  return dateString(d);
+}
+
+function dueCycles(nextDate,interval){
+  const today = dateString(new Date());
+  if(nextDate > today) return 0;
+  let date = nextDate;
+  let count = 0;
+  while(date <= today && count < 1200){
+    count++;
+    date = addMonths(date,interval);
+  }
+  return count;
+}
+
+// =====================================
+// REGISTRATION
+// =====================================
+async function register(){
+  const bp = document.getElementById("regBP").value.trim();
+  const nick = document.getElementById("regNick").value.trim();
+  const pass = document.getElementById("regPass").value;
+  const confirm = document.getElementById("regConfirm").value;
+
+  if(!bp || !nick || !pass){
+    return msg("সব তথ্য পূরণ করো।");
+  }
+  if(!/^[a-zA-Z0-9-]+$/.test(bp)){
+    return msg("BP ID-তে শুধু ইংরেজি অক্ষর, সংখ্যা ও - ব্যবহার করো।");
+  }
+  if(pass.length < 8){
+    return msg("Password কমপক্ষে ৮ অক্ষরের হতে হবে।");
+  }
+  if(pass !== confirm){
+    return msg("দুটি Password মিলছে না।");
+  }
+
+  msg("Account তৈরি হচ্ছে...");
+
+  const {data,error} = await sb.auth.signUp({
+    email:loginEmail(bp),
+    password:pass
+  });
+
+  if(error) return msg(error.message);
+  if(!data.session){
+    return msg("Registration হয়েছে। Email confirmation setting যাচাই করো।");
+  }
+
+  const {error:profileError} = await sb
+    .from("profiles")
+    .insert({
+      id:data.user.id,
+      bp_id:bp,
+      nickname:nick
+    });
+
+  if(profileError){
+    return msg("Profile তৈরি হয়নি: "+profileError.message);
+  }
+
+  msg("Registration সফল হয়েছে!");
+  await openDashboard();
+}
+
+// =====================================
+// LOGIN
+// =====================================
+async function login(){
+  const bp = document.getElementById("loginBP").value.trim();
+  const pass = document.getElementById("loginPass").value;
+
+  if(!bp || !pass) return msg("BP ID ও Password দাও।");
+
+  msg("Login হচ্ছে...");
+
+  const {error} = await sb.auth.signInWithPassword({
+    email:loginEmail(bp),
+    password:pass
+  });
+
+  if(error) return msg("Login failed: "+error.message);
+
+  await openDashboard();
+}
+
+// =====================================
+// DASHBOARD
+// =====================================
+async function openDashboard(){
+  const {data} = await sb.auth.getUser();
+  if(!data.user) return;
+
+  currentUser = data.user;
+
+  const {data:p,error} = await sb
+    .from("profiles")
+    .select("*")
+    .eq("id",currentUser.id)
+    .single();
+
+  if(error) return msg("Profile পাওয়া যায়নি: "+error.message);
+
+  profile = p;
+
+  document.getElementById("authSection").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("welcome").textContent =
+    "Welcome, "+profile.nickname+" | BP ID: "+profile.bp_id;
+
+  msg("");
+  await loadItems();
+  await loadHistory();
+}
+
+async function loadItems(){
+  const {data,error} = await sb
+    .from("kit_items")
+    .select("*")
+    .order("next_due_date");
+
+  if(error) return msg(error.message);
+
+  items = data || [];
+  renderItems();
+}
+
+// =====================================
+// ADD KIT
+// =====================================
+async function addItem(){
+  const name = document.getElementById("itemName").value.trim();
+  const qty = Number(document.getElementById("itemQty").value);
+  const interval = Number(document.getElementById("interval").value);
+  const start = document.getElementById("startDate").value;
+  const notes = document.getElementById("itemNotes").value.trim();
+
+  if(!name || !start || qty<1 || interval<1){
+    return msg("সঠিক নাম, পরিমাণ, মেয়াদ ও তারিখ দাও।");
+  }
+
+  msg("Kit যোগ হচ্ছে...");
+
+  const {error} = await sb.from("kit_items").insert({
+    user_id:currentUser.id,
+    item_name:name,
+    quantity:qty,
+    interval_months:interval,
+    start_date:start,
+    next_due_date:start,
+    notes:notes
+  });
+
+  if(error) return msg(error.message);
+
+  document.getElementById("itemName").value="";
+  document.getElementById("itemNotes").value="";
+  document.getElementById("startDate").value="";
+  msg("নতুন Kit সফলভাবে যোগ হয়েছে!");
+  await loadItems();
+}
+
+// =====================================
+// RENDER INVENTORY
+// =====================================
+function renderItems(){
+  let totalDue=0, overdueCount=0;
+
+  const list = document.getElementById("itemList");
+
+  if(!items.length){
+    list.innerHTML="এখনো কোনো Kit যোগ করা হয়নি।";
+  }else{
+    list.innerHTML=items.map(item=>{
+      const cycles=dueCycles(item.next_due_date,item.interval_months);
+      const dueQty=cycles*item.quantity;
+      totalDue+=dueQty;
+      if(cycles>0) overdueCount++;
+
+      return `
+      <div class="item">
+        <h3>${safe(item.item_name)}</h3>
+        <p>প্রতি বার: ${item.quantity} টি</p>
+        <p>Interval: ${item.interval_months} মাস</p>
+        <p>Next Due: ${safe(item.next_due_date)}</p>
+        <p class="${cycles>0?'red':'green'}">
+          ${cycles>0?'বকেয়া':'পরবর্তী Due'}: ${dueQty>0?dueQty+' টি': 'এখনো সময় হয়নি'}
+        </p>
+        ${cycles>0?`
+        <button onclick="receiveItem('${item.id}',${dueQty})">
+          Receive ${dueQty} টি
+        </button>`:""}
+      </div>`;
+    }).join("");
+  }
+
+  document.getElementById("total").textContent=items.length;
+  document.getElementById("due").textContent=totalDue;
+  document.getElementById("overdue").textContent=overdueCount;
+}
+
+// =====================================
+// RECEIVE KIT
+// =====================================
+async function receiveItem(id,qty){
+  const item=items.find(x=>x.id===id);
+  if(!item) return;
+
+  if(!confirm(item.item_name+" - "+qty+" টি Receive করবে?")) return;
+
+  const cycles=dueCycles(item.next_due_date,item.interval_months);
+  if(cycles===0) return msg("এখনো Due হয়নি।");
+
+  const receivedDate=dateString(new Date());
+  const nextDate=addMonths(item.next_due_date,
+    cycles*item.interval_months);
+
+  msg("Receive সংরক্ষণ হচ্ছে...");
+
+  const {error:receiptError}=await sb.from("kit_receipts").insert({
+    user_id:currentUser.id,
+    item_id:id,
+    received_quantity:qty,
+    received_date:receivedDate
+  });
+
+  if(receiptError) return msg(receiptError.message);
+
+  const {error:updateError}=await sb.from("kit_items")
+    .update({
+      next_due_date:nextDate,
+      updated_at:new Date().toISOString()
+    })
+    .eq("id",id);
+
+  if(updateError){
+    return msg("Receive history সংরক্ষিত হয়েছে, কিন্তু Due Date আপডেট হয়নি: "+updateError.message);
+  }
+
+  msg("Receive সফল হয়েছে!");
+  await loadItems();
+  await loadHistory();
+}
+
+// =====================================
+// HISTORY
+// =====================================
+async function loadHistory(){
+  const {data,error}=await sb.from("kit_receipts")
+    .select("*,kit_items(item_name)")
+    .order("received_date",{ascending:false})
+    .limit(50);
+
+  if(error) return;
+
+  const total=(data||[]).reduce(
+    (sum,r)=>sum+r.received_quantity,0
+  );
+  document.getElementById("received").textContent=total;
+
+  document.getElementById("history").innerHTML =
+    !data?.length ? "কোনো Receive History নেই।" :
+    data.map(r=>`
+      <div class="item">
+        <b>${safe(r.kit_items?.item_name || "Kit")}</b>
+        <p>পরিমাণ: ${r.received_quantity} টি</p>
+        <p>তারিখ: ${safe(r.received_date)}</p>
+      </div>
+    `).join("");
+}
+
+// =====================================
+// LOGOUT & AUTO LOGIN
+// =====================================
+async function logout(){
+  await sb.auth.signOut();
+  currentUser=null;
+  profile=null;
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("authSection").classList.remove("hidden");
+  showAuth("login");
+  msg("Logout সফল হয়েছে।");
+}
+
+async function init(){
+  const {data}=await sb.auth.getSession();
+  if(data.session) await openDashboard();
+}
+
+init();
+</script>
+</body>
+</html>
